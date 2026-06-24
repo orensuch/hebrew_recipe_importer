@@ -1,0 +1,503 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>מנתח מתכונים</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Frank+Ruhl+Libre:wght@500;700;900&family=Heebo:wght@300;400;500;700&display=swap" rel="stylesheet" />
+  <style>
+    :root {
+      --paper:#F7F3E9; --paper-2:#FCFAF3; --ink:#211C18; --ink-soft:#6A6157;
+      --rimon:#A8112E; --rimon-d:#7C0C22; --olive:#5E6B3B; --olive-d:#46512c;
+      --gold:#B8881C; --line:#DED5C2; --line-2:#E9E2D3;
+      --shadow:0 1px 2px rgba(33,28,24,.05),0 12px 34px rgba(33,28,24,.07);
+    }
+    * { box-sizing:border-box; }
+    body {
+      margin:0; color:var(--ink); font-family:"Heebo",system-ui,sans-serif;
+      line-height:1.65; -webkit-font-smoothing:antialiased;
+      background:radial-gradient(120% 80% at 90% -10%, #FBF8F0 0%, var(--paper) 55%) fixed;
+    }
+    .wrap { max-width:760px; margin:0 auto; padding:48px 22px 96px; }
+
+    .eyebrow { font-size:.8rem; letter-spacing:.18em; font-weight:500; color:var(--rimon); margin:0 0 10px; }
+    h1 { font-family:"Frank Ruhl Libre",serif; font-weight:900; font-size:clamp(2.4rem,7vw,3.6rem);
+         line-height:1.02; margin:0 0 14px; letter-spacing:-.01em; }
+    h1 .dot { color:var(--rimon); }
+    .lede { color:var(--ink-soft); font-size:1.06rem; max-width:52ch; margin:0; }
+
+    .panel { margin-top:30px; background:var(--paper-2); border:1px solid var(--line);
+             border-radius:16px; box-shadow:var(--shadow); padding:18px; }
+    .field { display:flex; gap:10px; }
+    input[type="url"] { flex:1; min-width:0; font:inherit; font-size:1.02rem; padding:14px 16px;
+      color:var(--ink); background:#fff; border:1px solid var(--line); border-radius:11px;
+      transition:border-color .15s, box-shadow .15s; }
+    input[type="url"]::placeholder { color:#b3a994; }
+    input[type="url"]:focus { outline:none; border-color:var(--rimon); box-shadow:0 0 0 4px rgba(168,17,46,.12); }
+    button.parse { font:inherit; font-weight:700; font-size:1.02rem; color:#fff; background:var(--rimon);
+      border:none; border-radius:11px; padding:0 26px; cursor:pointer; white-space:nowrap;
+      transition:background .15s, transform .05s; }
+    button.parse:hover { background:var(--rimon-d); }
+    button.parse:active { transform:translateY(1px); }
+    button.parse:disabled { background:#c89aa3; cursor:progress; }
+    button.parse:focus-visible { outline:3px solid rgba(168,17,46,.4); outline-offset:2px; }
+
+    /* model picker */
+    .modelrow { margin-top:14px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+    .modelrow label { font-size:.9rem; color:var(--ink-soft); font-weight:500; }
+    select#model { font:inherit; font-size:.95rem; padding:8px 12px; border:1px solid var(--line);
+      border-radius:9px; background:#fff; color:var(--ink); cursor:pointer; max-width:280px; }
+    select#model:focus { outline:none; border-color:var(--rimon); box-shadow:0 0 0 3px rgba(168,17,46,.12); }
+
+    /* mealie toggle */
+    .opts { margin-top:14px; display:flex; align-items:center; gap:10px; }
+    .switch { position:relative; display:inline-flex; align-items:center; gap:10px; cursor:pointer; user-select:none; }
+    .switch input { position:absolute; opacity:0; width:0; height:0; }
+    .switch .track { width:42px; height:24px; border-radius:999px; background:#d8cfbb;
+      transition:background .18s; flex:none; position:relative; }
+    .switch .track::after { content:""; position:absolute; top:3px; right:3px; width:18px; height:18px;
+      border-radius:50%; background:#fff; box-shadow:0 1px 2px rgba(0,0,0,.25); transition:transform .18s; }
+    .switch input:checked + .track { background:var(--olive); }
+    .switch input:checked + .track::after { transform:translateX(-18px); }
+    .switch input:disabled + .track { opacity:.45; }
+    .switch input:focus-visible + .track { outline:3px solid rgba(94,107,59,.4); outline-offset:2px; }
+    .switch .lbl { font-size:.95rem; font-weight:500; }
+    .opts .hint { font-size:.82rem; color:var(--ink-soft); }
+
+    /* health */
+    .health-row { display:flex; flex-wrap:wrap; gap:8px 18px; margin-top:14px; }
+    .health { display:inline-flex; align-items:center; gap:8px; font-size:.85rem; color:var(--ink-soft); }
+    .health .led { width:8px; height:8px; border-radius:50%; background:#c9bfa8; box-shadow:0 0 0 3px rgba(0,0,0,.03); }
+    .health.ok .led { background:var(--olive); }
+    .health.warn .led { background:var(--gold); }
+    .health.down .led { background:var(--rimon); }
+
+    /* progress */
+    .progress { margin-top:26px; background:var(--paper-2); border:1px solid var(--line);
+      border-radius:14px; padding:16px 18px; display:none; }
+    .progress.on { display:block; animation:rise .3s ease both; }
+    .prog-head { display:flex; align-items:baseline; justify-content:space-between; margin-bottom:12px; }
+    .prog-title { font-family:"Frank Ruhl Libre",serif; font-weight:700; font-size:1.2rem; }
+    .timer { font-variant-numeric:tabular-nums; color:var(--ink-soft); font-size:.95rem; }
+    .timer b { font-family:"Frank Ruhl Libre",serif; color:var(--rimon-d); font-size:1.25rem; }
+
+    .steps { display:flex; flex-direction:column; }
+    .pstep { display:grid; grid-template-columns:26px 1fr auto; gap:12px; align-items:center; padding:9px 0; }
+    .pstep + .pstep { border-top:1px solid var(--line-2); }
+    .pic { width:20px; height:20px; border-radius:50%; flex:none; display:grid; place-items:center; }
+    .pstep[data-state="pending"] .pic { background:#e7e0cf; }
+    .pstep[data-state="running"] .pic { border:3px solid var(--line); border-top-color:var(--rimon);
+      background:transparent; animation:spin .8s linear infinite; }
+    .pstep[data-state="done"] .pic { background:var(--olive); }
+    .pstep[data-state="done"] .pic::after { content:"✓"; color:#fff; font-size:.72rem; font-weight:700; }
+    .pstep[data-state="error"] .pic { background:var(--rimon); }
+    .pstep[data-state="error"] .pic::after { content:"✕"; color:#fff; font-size:.72rem; font-weight:700; }
+    .pbody { min-width:0; }
+    .plabel { font-weight:500; }
+    .pstep[data-state="pending"] .plabel { color:var(--ink-soft); }
+    .pnote { display:block; font-size:.82rem; color:var(--ink-soft); }
+    .pstep[data-state="error"] .pnote { color:var(--rimon-d); }
+    .pms { font-variant-numeric:tabular-nums; font-size:.85rem; color:var(--ink-soft); }
+    .prog-foot { margin-top:12px; padding-top:12px; border-top:2px solid var(--ink);
+      font-size:.95rem; display:none; }
+    .prog-foot b { font-family:"Frank Ruhl Libre",serif; font-size:1.15rem; color:var(--rimon-d); }
+
+    @keyframes spin { to { transform:rotate(360deg); } }
+
+    .msg { margin-top:26px; padding:16px 18px; border-radius:12px; border:1px solid var(--line);
+      background:var(--paper-2); color:var(--ink-soft); }
+    .msg.error { border-color:#e3b5be; background:#fbeef0; color:var(--rimon-d); }
+
+    /* result */
+    .result { margin-top:30px; display:none; animation:rise .4s ease both; }
+    .result.on { display:block; }
+    @keyframes rise { from { opacity:0; transform:translateY(10px); } to { opacity:1; transform:none; } }
+
+    .hero { width:100%; max-height:340px; object-fit:cover; border-radius:14px;
+      margin-bottom:8px; border:1px solid var(--line); display:block; background:var(--paper-2); }
+    .hero-wrap { margin:0 0 20px; }
+    .hero-cap { font-size:.8rem; color:var(--ink-soft); }
+    .hero-cap a { color:var(--rimon-d); }
+    .hero-fail { margin-bottom:20px; padding:11px 14px; border-radius:10px; font-size:.85rem;
+      color:var(--gold); background:rgba(184,136,28,.08); border:1px solid rgba(184,136,28,.25); }
+
+    .mealie-ok { display:flex; align-items:center; gap:8px; text-decoration:none; margin-bottom:20px;
+      padding:13px 16px; border-radius:12px; font-weight:500;
+      color:var(--olive-d); background:rgba(94,107,59,.1); border:1px solid rgba(94,107,59,.3); }
+    .mealie-ok:hover { background:rgba(94,107,59,.16); }
+    .mealie-err { margin-bottom:20px; padding:13px 16px; border-radius:12px;
+      color:var(--rimon-d); background:#fbeef0; border:1px solid #e3b5be; }
+    .mealie-note { margin:-12px 0 20px; font-size:.82rem; color:var(--gold); }
+
+    .r-title { font-family:"Frank Ruhl Libre",serif; font-weight:700; font-size:clamp(1.8rem,5vw,2.5rem);
+      line-height:1.1; margin:0 0 8px; }
+    .r-desc { color:var(--ink-soft); margin:0 0 18px; }
+    .meta { display:flex; flex-wrap:wrap; gap:10px; margin-bottom:18px; }
+    .meta .cell { background:var(--paper-2); border:1px solid var(--line); border-radius:10px; padding:8px 13px; }
+    .meta .k { display:block; font-size:.72rem; color:var(--ink-soft); letter-spacing:.04em; }
+    .meta .v { font-weight:700; font-family:"Frank Ruhl Libre",serif; font-size:1.05rem; }
+    .tags { display:flex; flex-wrap:wrap; gap:8px; margin-bottom:30px; }
+    .tag { font-size:.85rem; font-weight:500; color:var(--olive); background:rgba(94,107,59,.1);
+      border:1px solid rgba(94,107,59,.22); border-radius:999px; padding:4px 13px; }
+
+    .section-h { font-family:"Frank Ruhl Libre",serif; font-weight:700; font-size:1.5rem; margin:0 0 14px;
+      display:flex; align-items:baseline; gap:12px; }
+    .section-h .count { font-family:"Heebo"; font-size:.85rem; font-weight:400; color:var(--ink-soft); }
+    .section { margin-bottom:38px; }
+
+    .ledger { border-top:2px solid var(--ink); }
+    .ing-section { font-family:"Frank Ruhl Libre",serif; font-weight:700; color:var(--rimon-d);
+      font-size:1.1rem; padding:14px 4px 6px; border-bottom:1px solid var(--line-2); }
+    .stage-section { font-family:"Frank Ruhl Libre",serif; font-weight:700; color:var(--rimon-d);
+      font-size:1.1rem; margin:16px 0 4px; }
+    .ing { display:grid; grid-template-columns:120px 1fr; gap:16px; align-items:baseline;
+      padding:11px 4px; border-bottom:1px solid var(--line-2); }
+    .ing .qty { font-family:"Frank Ruhl Libre",serif; font-weight:700; color:var(--rimon-d);
+      text-align:start; font-size:1.05rem; font-variant-numeric:tabular-nums; }
+    .ing .qty .unit { color:var(--ink-soft); font-weight:500; font-size:.92rem; margin-inline-start:4px; }
+    .ing .nm { font-size:1.05rem; }
+
+    .stage { display:grid; grid-template-columns:38px 1fr; gap:16px; padding:12px 0; align-items:start; }
+    .stage + .stage { border-top:1px solid var(--line-2); }
+    .stage .num { width:34px; height:34px; flex:none; border-radius:50%; display:grid; place-items:center;
+      font-family:"Frank Ruhl Libre",serif; font-weight:700; color:#fff; background:var(--rimon); font-size:1.05rem; }
+    .stage .txt { padding-top:3px; }
+
+    details.raw { margin-top:12px; border-top:1px solid var(--line); padding-top:18px; }
+    details.raw summary { cursor:pointer; font-weight:500; color:var(--ink-soft); list-style:none; }
+    details.raw summary::-webkit-details-marker { display:none; }
+    .json-head { display:flex; align-items:center; justify-content:space-between; gap:12px; margin:14px 0 8px; }
+    button.copy { font:inherit; font-size:.82rem; font-weight:500; cursor:pointer; color:var(--ink);
+      background:var(--paper-2); border:1px solid var(--line); border-radius:8px; padding:6px 12px; }
+    button.copy:hover { border-color:var(--ink-soft); }
+    pre { direction:ltr; text-align:left; margin:0; padding:16px; background:#211C18; color:#ECE6D8;
+      border-radius:12px; overflow-x:auto; font-size:.82rem; line-height:1.55;
+      font-family:ui-monospace,"SF Mono",Menlo,monospace; }
+
+    footer { margin-top:40px; color:#b3a994; font-size:.8rem; }
+
+    @media (max-width:560px) {
+      .field { flex-direction:column; }
+      button.parse { padding:13px; }
+      .ing { grid-template-columns:90px 1fr; gap:10px; }
+    }
+    @media (prefers-reduced-motion:reduce) {
+      *, *::before, *::after { animation:none !important; transition:none !important; }
+    }
+  </style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <p class="eyebrow">פענוח מתכונים מקומי · Ollama → Mealie</p>
+      <h1>מנתח מתכונים<span class="dot">.</span></h1>
+      <p class="lede">הדביקו קישור למתכון בעברית. השירות יגרד את העמוד, יזהה רכיבים, כמויות ושלבי הכנה — ויחזיר הכול מובנה, עם אפשרות לשמירה ישירה ב‑Mealie.</p>
+    </header>
+
+    <section class="panel">
+      <div class="field">
+        <input id="url" type="url" inputmode="url" placeholder="הדביקו כתובת של מתכון…" autocomplete="off" />
+        <button id="go" class="parse">פענוח</button>
+      </div>
+      <div class="modelrow">
+        <label for="model">מודל:</label>
+        <select id="model"><option>טוען…</option></select>
+      </div>
+      <div class="opts">
+        <label class="switch">
+          <input id="mealie-toggle" type="checkbox" />
+          <span class="track"></span>
+          <span class="lbl">שמירה ב‑Mealie</span>
+        </label>
+        <span id="mealie-hint" class="hint"></span>
+      </div>
+      <div class="health-row">
+        <span id="h-ollama" class="health"><span class="led"></span><span class="t">בודק Ollama…</span></span>
+        <span id="h-mealie" class="health"><span class="led"></span><span class="t">בודק Mealie…</span></span>
+      </div>
+    </section>
+
+    <div id="progress" class="progress" aria-live="polite">
+      <div class="prog-head">
+        <span id="prog-title" class="prog-title">מעבד…</span>
+        <span class="timer"><b id="elapsed">0.0</b> שנ׳</span>
+      </div>
+      <div id="steps" class="steps"></div>
+      <div id="prog-foot" class="prog-foot">סה״כ זמן: <b id="total">—</b> שנ׳</div>
+    </div>
+
+    <div id="error" class="msg error" style="display:none"></div>
+    <article id="result" class="result" aria-live="polite"></article>
+
+    <footer>נבנה כשירות מקומי. הפענוח מתבצע על מודל שרץ ב‑Ollama אצלכם, והשמירה מול Mealie המקומי.</footer>
+  </div>
+
+  <script>
+    const $ = (id) => document.getElementById(id);
+    const esc = (s) => String(s ?? "").replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+    const secs = (ms) => (ms / 1000).toFixed(1);
+
+    const STEP_LABELS = { fetch:"גרידת העמוד", parse:"פענוח עם המודל", mealie:"שמירה ב‑Mealie" };
+    let mealieReady = false;
+
+    /* ---- health ---- */
+    async function loadHealth() {
+      try {
+        const d = await (await fetch("/api/health")).json();
+
+        const o = $("h-ollama"), ot = o.querySelector(".t");
+        if (!d.ollama_reachable) {
+          o.className = "health down";
+          ot.textContent = `Ollama לא נגיש (${d.host || ""})`;
+          o.title = d.error || "";
+        }
+        else if (d.model_available === false) { o.className = "health warn"; ot.textContent = `Ollama · המודל «${d.model}» לא הותקן`; }
+        else { o.className = "health ok"; ot.textContent = `Ollama · ${d.model}`; o.title = d.host || ""; }
+
+        // model picker — list installed models, default to the configured one
+        const sel = $("model");
+        const models = (d.available_models || []).slice();
+        const def = d.model || "";
+        if (def && !models.includes(def)) models.unshift(def);
+        if (models.length) {
+          sel.innerHTML = models.map(m =>
+            `<option value="${esc(m)}"${m === def ? " selected" : ""}>${esc(m)}</option>`).join("");
+        } else {
+          sel.innerHTML = `<option value="${esc(def)}" selected>${esc(def || "ברירת מחדל")}</option>`;
+        }
+
+        const m = $("h-mealie"), mt = m.querySelector(".t");
+        const tog = $("mealie-toggle"), hint = $("mealie-hint");
+        if (!d.mealie_configured) {
+          m.className = "health warn"; mt.textContent = "Mealie לא מוגדר";
+          tog.checked = false; tog.disabled = true;
+          hint.textContent = "הגדירו MEALIE_API_TOKEN כדי לאפשר שמירה";
+        } else if (!d.mealie_reachable) {
+          m.className = "health down";
+          mt.textContent = `Mealie לא נגיש (${d.mealie_target || ""})`;
+          m.title = d.mealie_error || "";
+          tog.disabled = false; mealieReady = true;
+        } else {
+          m.className = "health ok"; mt.textContent = "Mealie מחובר";
+          tog.disabled = false; tog.checked = true; mealieReady = true;
+        }
+      } catch {
+        $("h-ollama").className = "health down";
+        $("h-ollama").querySelector(".t").textContent = "השירות לא זמין";
+      }
+    }
+
+    /* ---- elapsed timer ---- */
+    let timerInt = null, startTs = 0;
+    function startTimer() {
+      startTs = performance.now();
+      $("elapsed").textContent = "0.0";
+      timerInt = setInterval(() => { $("elapsed").textContent = secs(performance.now() - startTs); }, 100);
+    }
+    function stopTimer(finalMs) {
+      if (timerInt) { clearInterval(timerInt); timerInt = null; }
+      if (finalMs != null) $("elapsed").textContent = secs(finalMs);
+    }
+
+    /* ---- progress steps ---- */
+    function buildSteps(withMealie) {
+      const steps = ["fetch", "parse"];
+      if (withMealie) steps.push("mealie");
+      $("steps").innerHTML = steps.map(s => `
+        <div class="pstep" id="step-${s}" data-state="pending">
+          <span class="pic"></span>
+          <div class="pbody"><span class="plabel">${STEP_LABELS[s]}</span><span class="pnote" id="note-${s}"></span></div>
+          <span class="pms" id="ms-${s}"></span>
+        </div>`).join("");
+    }
+    function setStep(step, state, e) {
+      const row = $("step-" + step);
+      if (!row) return;
+      row.dataset.state = state;
+      const note = $("note-" + step), ms = $("ms-" + step);
+      if (e.ms != null) ms.textContent = secs(e.ms) + " שנ׳";
+      if (state === "done" && step === "parse" && e.ingredients != null)
+        note.textContent = `${e.ingredients} רכיבים · ${e.stages} שלבים`;
+      else if (state === "done" && e.note) note.textContent = e.note;
+      else if (state === "done" && step === "mealie") {
+        const bits = [];
+        if (e.image_set) bits.push("תמונה");
+        if (e.tags) bits.push(`${e.tags} תיוגים`);
+        let txt = bits.length ? "נשמר · " + bits.join(" · ") : "נשמר בהצלחה";
+        if (!e.image_set) txt += e.image_found ? " · התמונה נכשלה" : " · ללא תמונה";
+        note.textContent = txt;
+      }
+      else if (state === "error" && e.message) { note.textContent = e.message; ms.textContent = ""; }
+    }
+
+    /* ---- result rendering ---- */
+    function mealieBanner(m) {
+      if (!m) return "";
+      if (m.ok) {
+        const extras = [];
+        if (m.image_set) extras.push("תמונה");
+        if (m.tags_attached) extras.push(`${m.tags_attached} תיוגים`);
+        const suffix = extras.length ? ` · כולל ${extras.join(" ו‑")}` : "";
+        let warn = "";
+        if (!m.image_set) {
+          if (!m.image_found) warn = `<div class="mealie-note">לא נמצאה תמונה בעמוד המקור</div>`;
+          else if (m.image_error) warn = `<div class="mealie-note">התמונה לא צורפה: ${esc(m.image_error)}</div>`;
+        }
+        return `<a class="mealie-ok" href="${esc(m.recipe_url)}" target="_blank" rel="noopener">
+          <span>✓ נשמר ב‑Mealie${suffix} — פתחו את «${esc(m.name)}» ↗</span></a>${warn}`;
+      }
+      return `<div class="mealie-err">⚠ השמירה ל‑Mealie נכשלה: ${esc(m.error)}</div>`;
+    }
+    function proxyUrl(d) {
+      return `/api/image?url=${encodeURIComponent(d.image_url)}&referer=${encodeURIComponent(d.source_url || "")}`;
+    }
+    function heroHTML(d) {
+      if (!d.image_url) return `<div class="hero-fail">לא זוהתה תמונה בעמוד המקור</div>`;
+      return `<figure class="hero-wrap">
+        <img id="hero-img" class="hero" src="${esc(proxyUrl(d))}" alt="${esc(d.title)}" />
+        <figcaption id="hero-cap" class="hero-cap">תמונה כפי שהקונטיינר הוריד · <a href="${esc(d.image_url)}" target="_blank" rel="noopener" dir="ltr">המקור</a></figcaption>
+      </figure>`;
+    }
+    function metaCell(label, val) {
+      if (!val) return "";
+      return `<div class="cell"><span class="k">${esc(label)}</span><span class="v">${esc(val)}</span></div>`;
+    }
+    function render(d) {
+      const meta = [
+        metaCell("מנות", d.servings), metaCell("זמן הכנה", d.prep_time),
+        metaCell("זמן בישול", d.cook_time), metaCell("זמן כולל", d.total_time),
+      ].join("");
+      const tags = (d.tags || []).map(t => `<span class="tag">${esc(t)}</span>`).join("");
+      let prevIngSec = null;
+      const ings = (d.ingredients || []).map(i => {
+        const sec = (i.section || "").trim();
+        const head = (sec && sec !== prevIngSec) ? `<div class="ing-section">${esc(sec)}</div>` : "";
+        prevIngSec = sec;
+        return head + `
+        <div class="ing">
+          <div class="qty">${esc(i.amount)}${i.unit ? `<span class="unit">${esc(i.unit)}</span>` : ""}</div>
+          <div class="nm">${esc(i.name)}</div>
+        </div>`;
+      }).join("");
+      let prevStageSec = null;
+      const stages = (d.stages || []).map(s => {
+        const sec = (s.section || "").trim();
+        const head = (sec && sec !== prevStageSec) ? `<div class="stage-section">${esc(sec)}</div>` : "";
+        prevStageSec = sec;
+        return head + `
+        <div class="stage"><div class="num">${esc(s.step)}</div><div class="txt">${esc(s.instruction)}</div></div>`;
+      }).join("");
+
+      $("result").innerHTML = `
+        ${mealieBanner(d.mealie)}
+        ${heroHTML(d)}
+        <h2 class="r-title">${esc(d.title) || "מתכון"}</h2>
+        ${d.description ? `<p class="r-desc">${esc(d.description)}</p>` : ""}
+        ${meta ? `<div class="meta">${meta}</div>` : ""}
+        ${tags ? `<div class="tags">${tags}</div>` : ""}
+        ${ings ? `<div class="section"><h3 class="section-h">רכיבים <span class="count">${d.ingredients.length}</span></h3><div class="ledger">${ings}</div></div>` : ""}
+        ${stages ? `<div class="section"><h3 class="section-h">אופן ההכנה <span class="count">${d.stages.length} שלבים</span></h3><div>${stages}</div></div>` : ""}
+        <details class="raw">
+          <summary>הצגת ה‑JSON הגולמי ▾</summary>
+          <div class="json-head">
+            <span class="count" style="color:var(--ink-soft);font-size:.85rem">מקור: ${esc(d.source_url)}</span>
+            <button class="copy" id="copy">העתקת JSON</button>
+          </div>
+          <pre id="json">${esc(JSON.stringify(d, null, 2))}</pre>
+        </details>`;
+      $("result").classList.add("on");
+      const hero = $("hero-img");
+      if (hero) {
+        hero.onerror = async () => {
+          let reason = "";
+          try {
+            const rr = await fetch(hero.src);
+            const jj = await rr.json();
+            reason = jj.detail || "";
+          } catch {}
+          const cap = $("hero-cap");
+          if (cap) {
+            cap.className = "hero-fail";
+            cap.textContent = "הקונטיינר לא הצליח להוריד את התמונה" + (reason ? `: ${reason}` : "");
+          }
+          hero.remove();
+        };
+      }
+      $("copy").addEventListener("click", () => {
+        navigator.clipboard.writeText(JSON.stringify(d, null, 2));
+        $("copy").textContent = "הועתק!";
+        setTimeout(() => ($("copy").textContent = "העתקת JSON"), 1500);
+      });
+    }
+
+    function handleEvent(msg) {
+      if (msg.event === "status") {
+        setStep(msg.step, msg.state, msg);
+      } else if (msg.event === "error") {
+        stopTimer();
+        $("prog-title").textContent = "נעצר";
+        $("error").textContent = msg.detail || "אירעה שגיאה.";
+        $("error").style.display = "block";
+      } else if (msg.event === "result") {
+        stopTimer(msg.total_ms);
+        $("prog-title").textContent = "הושלם";
+        $("total").textContent = secs(msg.total_ms);
+        $("prog-foot").style.display = "block";
+        render(msg.recipe);
+      }
+    }
+
+    async function run() {
+      const url = $("url").value.trim();
+      const withMealie = mealieReady && $("mealie-toggle").checked;
+      const model = $("model").value || undefined;
+      $("error").style.display = "none";
+      $("result").classList.remove("on");
+      $("prog-foot").style.display = "none";
+      if (!url) { $("error").textContent = "נא להזין כתובת של מתכון."; $("error").style.display = "block"; return; }
+
+      $("go").disabled = true;
+      $("prog-title").textContent = "מעבד…";
+      buildSteps(withMealie);
+      $("progress").classList.add("on");
+      startTimer();
+
+      try {
+        const resp = await fetch("/api/parse/stream", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ url, send_to_mealie: withMealie, model }),
+        });
+        if (!resp.ok || !resp.body) throw new Error("השרת לא זמין כרגע.");
+        const reader = resp.body.getReader();
+        const dec = new TextDecoder();
+        let buf = "";
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          buf += dec.decode(value, { stream: true });
+          let i;
+          while ((i = buf.indexOf("\n")) >= 0) {
+            const line = buf.slice(0, i).trim();
+            buf = buf.slice(i + 1);
+            if (line) handleEvent(JSON.parse(line));
+          }
+        }
+      } catch (e) {
+        stopTimer();
+        $("prog-title").textContent = "נעצר";
+        $("error").textContent = e.message || "אירעה שגיאה בלתי צפויה.";
+        $("error").style.display = "block";
+      } finally {
+        $("go").disabled = false;
+      }
+    }
+
+    $("go").addEventListener("click", run);
+    $("url").addEventListener("keydown", (e) => { if (e.key === "Enter") run(); });
+    loadHealth();
+  </script>
+</body>
+</html>
